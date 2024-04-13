@@ -82,7 +82,8 @@ public class Server {
             }
 
             // Perform final sorting on the sorted segments
-            Arrays.sort(sortedSegments);
+            //Arrays.sort(sortedSegments);
+            mergeSort.splitArrays(sortedSegments);
 
             long endTime = System.nanoTime();
 
@@ -105,8 +106,52 @@ public class Server {
 
             @Override
             public void run() {
-                Arrays.sort(segment);
+                mergeSort.splitArrays(segment);
+                //Arrays.sort(segment);
                 System.arraycopy(segment, 0, sortedSegments, startIndex, segment.length);
+            }
+        }
+    }
+    static class mergeSort {
+        //Take in array and split it (if possible) before merging.
+        public static void splitArrays(int[] wholeArray) {
+            if (wholeArray.length > 1) {
+                int midpoint = wholeArray.length / 2;
+                int[] leftSegment = new int[midpoint], rightSegment = new int[wholeArray.length - midpoint];
+                System.arraycopy(wholeArray, 0, leftSegment, 0, midpoint);
+                System.arraycopy(wholeArray, midpoint, rightSegment, 0, wholeArray.length - midpoint);
+                splitArrays(leftSegment);
+                splitArrays(rightSegment);
+                mergeArrays(leftSegment, rightSegment, wholeArray);
+            }
+        }
+        //Unite the split arrays.
+        private static void mergeArrays(int[] arraySegment1, int[] arraySegment2, int[] combinedArray) {
+            int i = 0, j = 0, k = 0;
+            while (i < arraySegment1.length && j < arraySegment2.length) {
+                if (arraySegment1[i] <= arraySegment2[j]) {
+                    combinedArray[k] = arraySegment1[i];
+                    i++;
+                }
+                else {
+                    combinedArray[k] = arraySegment2[j];
+                    j++;
+                }
+                k++;
+            }
+            if (i == arraySegment1.length) {
+                while (j < arraySegment2.length) {
+                    combinedArray[k] = arraySegment2[j];
+                    j++;
+                    k++;
+                }
+            }
+            else {
+                while (i < arraySegment1.length) {
+                    combinedArray[k] = arraySegment1[i];
+                    i++;
+                    k++;
+                }
             }
         }
     }

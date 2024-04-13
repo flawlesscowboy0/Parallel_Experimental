@@ -31,10 +31,10 @@ public class Client {
 
         // Create arrays of different sizes
         int[][] arrays = new int[][]{
-                generateRandomArray(10),
-                generateRandomArray(100),
-                generateRandomArray(200),
-                generateRandomArray(300)
+                generateRandomArray(1000000), //Original sizes are 10, 100, 200, 300.
+                generateRandomArray(2000000),
+                generateRandomArray(5000000),
+                generateRandomArray(10000000)
         };
 
         // Send arrays to the router
