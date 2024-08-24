@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -11,6 +12,20 @@ public class Router {
 
     public static void main(String[] args) {
         ExecutorService clientThreadPool = Executors.newFixedThreadPool(MAX_CLIENTS);
+
+        // Start a new thread for printing the routing table every 10 seconds
+        Thread printThread = new Thread(() -> {
+            while (true) {
+                printRoutingTable(); // Print the map contents
+                try {
+                    Thread.sleep(10000); // Sleep for 10 seconds
+                } catch (InterruptedException e) {
+                    e.printStackTrace(); // Handle interruption
+                }
+            }
+        });
+
+        printThread.start(); // Start the print thread
 
         try {
             try (ServerSocket serverSocket = new ServerSocket(12346)) {
@@ -36,9 +51,23 @@ public class Router {
         }
     }
 
+    // Method to print the contents of the routing table
+    private static void printRoutingTable() {
+        System.out.println("Routing Table Contents:");
+        System.out.println("========================");
+
+        // Iterate over the map and print each entry
+        for (Map.Entry<String, Socket> entry : routingTable.entrySet()) {
+            String ipAddress = entry.getKey();
+            Socket socket = entry.getValue();
+            System.out.println("IP Address: " + ipAddress + ", Socket: " + socket);
+        }
+
+        System.out.println("========================\n");
+    }
+
     static class ClientHandler implements Runnable {
-        private Socket clientSocket;
-        private Socket serverSocket;
+        private final Socket clientSocket;
 
         ClientHandler(Socket clientSocket) {
             this.clientSocket = clientSocket;
@@ -50,15 +79,15 @@ public class Router {
                 InputStream inputStream = clientSocket.getInputStream();
                 byte[] ipBuffer = new byte[15]; // Buffer size adjusted for max IP length
                 inputStream.read(ipBuffer);
-                String serverIP = new String(ipBuffer, "UTF-8").trim(); // Read IP address, then socket
+                String destinationIP = new String(ipBuffer, StandardCharsets.UTF_8).trim(); // Read IP address, then socket
                 DataInputStream dataInputStream = new DataInputStream(inputStream);
-                int serverSocket = dataInputStream.readInt();
+                int destinationSocket = dataInputStream.readInt();
                 dataInputStream.close(); //Close connection
                 // Connect to the server
-                this.serverSocket = new Socket(serverIP, serverSocket);
+                Socket serverSocket = new Socket(destinationIP, destinationSocket);
 
                 // Establish input and output streams for client and server communication
-                ObjectOutputStream serverOutput = new ObjectOutputStream(this.serverSocket.getOutputStream());
+                ObjectOutputStream serverOutput = new ObjectOutputStream(serverSocket.getOutputStream());
                 ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
 
                 // Read arrays from the client and transmit them to the server
@@ -80,7 +109,7 @@ public class Router {
                 inputStream.close();
                 serverOutput.close();
                 clientSocket.close();
-                this.serverSocket.close();
+                serverSocket.close();
 
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
