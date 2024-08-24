@@ -8,16 +8,19 @@ public class Client {
     public static void main(String[] args) {
         String serverIP, routerIP;
         int serverSocket, routerSocket;
-        try {
-            Scanner scanner = new Scanner(System.in);
+
+        try (Scanner scanner = new Scanner(System.in)) {
             System.out.println("Enter the IP address of the server: ");
             serverIP = scanner.nextLine();
+
             System.out.println("Enter the server socket: ");
-            serverSocket = scanner.nextInt();
+            serverSocket = Integer.parseInt(scanner.nextLine());
+
             System.out.println("Enter the IP address of the router: ");
             routerIP = scanner.nextLine();
+
             System.out.println("Enter the router socket: ");
-            routerSocket = scanner.nextInt();
+            routerSocket = Integer.parseInt(scanner.nextLine());
 
             while (true) {
                 transmitArrays(serverIP, serverSocket, routerIP, routerSocket);
@@ -30,53 +33,46 @@ public class Client {
                 }
             }
 
-            scanner.close();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid number format. Please enter valid integers for ports.");
         }
     }
 
     private static void transmitArrays(String serverIP, int serverSocket, String routerIP, int routerSocket) throws IOException {
-        Socket socket = new Socket(routerIP, routerSocket); // Connecting to the router on port 12346
-        // Output stream handling.
-        OutputStream outputStream = socket.getOutputStream();
-        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
-        ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
+        try (Socket socket = new Socket(routerIP, routerSocket);
+             OutputStream outputStream = socket.getOutputStream();
+             DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
 
-        // Send the IP address as a UTF-8 encoded string.
-        outputStream.write(serverIP.getBytes(StandardCharsets.UTF_8));
-        outputStream.flush(); // Ensure the IP address is sent.
+            // Send the IP address followed by a newline.
+            outputStream.write((serverIP + "\n").getBytes(StandardCharsets.UTF_8));
 
-        // Send the socket
-        dataOutputStream.writeInt(serverSocket);
-        dataOutputStream.flush(); // Ensure the socket is sent.
+            // Send the socket number.
+            dataOutputStream.writeInt(serverSocket);
 
-        // Create arrays of different sizes
-        int[][] arrays = new int[][]{
-                generateRandomArray(10000), //Original sizes are 10, 100, 200, 300.
-                generateRandomArray(200000),
-                generateRandomArray(500000),
-                generateRandomArray(1000000)
-        };
+            // Create and send arrays.
+            int[][] arrays = {
+                    generateRandomArray(10000),
+                    generateRandomArray(200000),
+                    generateRandomArray(500000),
+                    generateRandomArray(1000000)
+            };
 
-        // Send arrays to the router
-        for (int[] array : arrays) {
-            objectOutputStream.writeObject(array);
-            objectOutputStream.flush();
-        }
+            for (int[] array : arrays) {
+                objectOutputStream.writeObject(array);
+                objectOutputStream.flush(); // Ensure data is sent.
+            }
 
-        // Close connection to the router
-        objectOutputStream.close();
-        dataOutputStream.close();
-        outputStream.close();
-        socket.close();
+        } // Resources are automatically closed here
     }
 
     private static int[] generateRandomArray(int size) {
         Random random = new Random();
         int[] array = new int[size];
         for (int i = 0; i < size; i++) {
-            array[i] = random.nextInt(1000); // Generating random integers between 0 and 999.
+            array[i] = random.nextInt(1000);
         }
         return array;
     }

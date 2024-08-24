@@ -3,12 +3,13 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Router {
     private static final int MAX_CLIENTS = 10; // Maximum number of simultaneous clients.
-    private static final Map<String, Socket> routingTable = new HashMap<>(); // Routing table to store clients by IP address.
+    private static final Map<String, Socket> routingTable = new ConcurrentHashMap<>(); // Routing table to store clients by IP address.
 
     public static void main(String[] args) {
         ExecutorService clientThreadPool = Executors.newFixedThreadPool(MAX_CLIENTS);
@@ -21,6 +22,7 @@ public class Router {
                     Thread.sleep(10000); // Sleep for 10 seconds.
                 } catch (InterruptedException e) {
                     e.printStackTrace(); // Handle interruption.
+                    Thread.currentThread().interrupt();
                 }
             }
         });
@@ -75,47 +77,37 @@ public class Router {
 
         @Override
         public void run() {
-            try {
-                // Create two of three input streams.
-                InputStream inputStream = clientSocket.getInputStream();
-                DataInputStream dataInputStream = new DataInputStream(inputStream);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8));
+                 DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
+                 ObjectInputStream objectInputStream = new ObjectInputStream(clientSocket.getInputStream())) {
 
-                byte[] ipBuffer = new byte[15]; // Buffer size adjusted for max IP length.
-                inputStream.read(ipBuffer);
-                String destinationIP = new String(ipBuffer, StandardCharsets.UTF_8).trim(); // Read IP address, then socket
-                int destinationSocket = dataInputStream.readInt();
+                // Read IP address and port.
+                String destinationIP = reader.readLine();
+                int destinationPort = dataInputStream.readInt();
+
                 // Connect to the server.
-                Socket serverSocket = new Socket(destinationIP, destinationSocket);
+                try (Socket serverSocket = new Socket(destinationIP, destinationPort);
+                     ObjectOutputStream serverOutput = new ObjectOutputStream(serverSocket.getOutputStream())) {
 
-                // Establish input and output streams for client and server communication.
-                ObjectOutputStream serverOutput = new ObjectOutputStream(serverSocket.getOutputStream());
-                ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
-
-                // Read arrays from the client and transmit them to the server.
-                while (true) {
-                    try {
-                        Object object = objectInputStream.readObject();
-                        if (object instanceof int[] array) {
-                            serverOutput.writeObject(array);
-                            serverOutput.flush();
+                    // Read arrays from the client and transmit them to the server.
+                    while (true) {
+                        try {
+                            Object object = objectInputStream.readObject();
+                            if (object instanceof int[] array) {
+                                serverOutput.writeObject(array);
+                                serverOutput.flush();
+                            }
+                        } catch (EOFException e) {
+                            // End of stream reached, terminate the loop.
+                            break;
                         }
-                    } catch (EOFException e) {
-                        // End of stream reached, terminate the loop.
-                        break;
                     }
                 }
-
-                // Close connections.
-                objectInputStream.close();
-                dataInputStream.close();
-                inputStream.close();
-                serverOutput.close();
-                clientSocket.close();
-                serverSocket.close();
 
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
         }
     }
+
 }
