@@ -3,31 +3,27 @@ import java.net.*;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 public class Server {
     private static final int[] THREAD_COUNTS = {1, 2, 4, 8, 16};
-    private static final int MAX_CLIENTS = 10; // Maximum number of simultaneous clients.
+    private static final int MAX_CLIENTS = 10; // Maximum number of simultaneous clients
 
     public static void main(String[] args) {
         ExecutorService clientThreadPool = Executors.newFixedThreadPool(MAX_CLIENTS);
 
-        try (ServerSocket serverSocket = new ServerSocket(12345)) {
+        try {
+            ServerSocket serverSocket = new ServerSocket(12345); // Listening on port 12345
             System.out.println("Server started, waiting for clients...");
+
             while (true) {
-                try {
-                    Socket clientSocket = serverSocket.accept();
-                    clientThreadPool.execute(new ClientHandler(clientSocket));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                Socket clientSocket = serverSocket.accept(); // Accept incoming connections
+                clientThreadPool.execute(new ClientHandler(clientSocket)); // Handle client in a thread from the pool
             }
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
             clientThreadPool.shutdown();
         }
-
     }
 
     static class ClientHandler implements Runnable {
@@ -42,12 +38,12 @@ public class Server {
             try {
                 ObjectInputStream inputStream = new ObjectInputStream(clientSocket.getInputStream());
 
-                // Receive arrays from the client.
+                // Receive arrays from the client
                 for (int i = 0; i < 4; i++) {
                     int[] array = (int[]) inputStream.readObject();
                     System.out.println("Received array of size " + array.length);
 
-                    // Sort the array using different thread counts.
+                    // Sort the array using different thread counts
                     for (int threadCount : THREAD_COUNTS) {
                         sortArray(array, threadCount);
                     }
@@ -62,49 +58,41 @@ public class Server {
         private void sortArray(int[] array, int threadCount) {
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             int segmentSize = array.length / threadCount;
-            int[] sortedArray = Arrays.copyOf(array, array.length); // Create a copy of the array to be sorted.
+            int[] sortedSegments = new int[array.length];
 
             long startTime = System.nanoTime();
 
-            // Create and execute sorting tasks for each segment.
+            // Create and execute sorting tasks for each segment
             for (int i = 0; i < threadCount; i++) {
                 int startIndex = i * segmentSize;
                 int endIndex = (i == threadCount - 1) ? array.length : (i + 1) * segmentSize;
-                int[] segment = Arrays.copyOfRange(sortedArray, startIndex, endIndex);
-
-                // Sort each segment in its own thread.
-                executor.execute(() -> {
-                    mergeSort.splitArrays(segment); // Sort the segment.
-                    synchronized (sortedArray) {
-                        System.arraycopy(segment, 0, sortedArray, startIndex, segment.length); // Merge back into sortedArray.
-                    }
-                });
+                int[] segment = Arrays.copyOfRange(array, startIndex, endIndex);
+                executor.execute(new SortingTask(segment, sortedSegments, startIndex));
             }
 
             executor.shutdown();
 
             try {
-                // Wait for all tasks to complete.
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-                    executor.shutdownNow(); // Force shutdown if tasks don't finish in time.
+                // Wait for all tasks to complete
+                while (!executor.isTerminated()) {
+                    Thread.sleep(10);
                 }
             } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
+                e.printStackTrace();
             }
 
-            // Perform the final merge.
-            mergeSort.splitArrays(sortedArray); // Perform merge sort on the entire array.
+            // Perform final sorting on the sorted segments
+            //Arrays.sort(sortedSegments);
+            mergeSort.splitArrays(sortedSegments);
 
             long endTime = System.nanoTime();
 
-            // Print metrics.
+            // Print metrics
             System.out.println("Thread count: " + threadCount);
             System.out.println("Sorting time: " + (endTime - startTime) + " nanoseconds\n");
         }
 
-
-        // Sorting task for each segment.
+        // Sorting task for each segment
         static class SortingTask implements Runnable {
             private int[] segment;
             private int[] sortedSegments;
