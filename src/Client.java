@@ -38,18 +38,18 @@ public class Client {
 
     private static void transmitArrays(String serverIP, int serverSocket, String routerIP, int routerSocket) throws IOException {
         Socket socket = new Socket(routerIP, routerSocket); // Connecting to the router on port 12346
+        // Output stream handling.
         OutputStream outputStream = socket.getOutputStream();
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
         ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
 
-        // Send the IP address as a UTF-8 encoded string
+        // Send the IP address as a UTF-8 encoded string.
         outputStream.write(serverIP.getBytes(StandardCharsets.UTF_8));
-        outputStream.flush(); // Ensure the IP address is sent
+        outputStream.flush(); // Ensure the IP address is sent.
 
         // Send the socket
-        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
         dataOutputStream.writeInt(serverSocket);
-        dataOutputStream.flush(); // Ensure the socket is sent
-        dataOutputStream.close(); //Close connection.
+        dataOutputStream.flush(); // Ensure the socket is sent.
 
         // Create arrays of different sizes
         int[][] arrays = new int[][]{
@@ -67,6 +67,7 @@ public class Client {
 
         // Close connection to the router
         objectOutputStream.close();
+        dataOutputStream.close();
         outputStream.close();
         socket.close();
     }
@@ -75,7 +76,7 @@ public class Client {
         Random random = new Random();
         int[] array = new int[size];
         for (int i = 0; i < size; i++) {
-            array[i] = random.nextInt(1000); // Generating random integers between 0 and 999
+            array[i] = random.nextInt(1000); // Generating random integers between 0 and 999.
         }
         return array;
     }
